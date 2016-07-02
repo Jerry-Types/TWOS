@@ -38,6 +38,21 @@ def setQuery(quer):
 def closeSOAPsession(authClient):
 	authClient.service.closeSession()
 
+
+def distance(str1, str2):
+  # get from https://es.wikipedia.org/wiki/Distancia_de_Levenshtein#Python
+  d=dict()
+  for i in range(len(str1)+1):
+     d[i]=dict()
+     d[i][0]=i
+  for i in range(len(str2)+1):
+     d[0][i] = i
+  for i in range(1, len(str1)+1):
+     for j in range(1, len(str2)+1):
+        d[i][j] = min(d[i][j-1]+1, d[i-1][j]+1, d[i-1][j-1]+(not str1[i-1] == str2[j-1]))
+  return d[len(str1)][len(str2)]
+
+
 def search_author(query):
 	authClient=Client(AUTH_URL)
 	SID=authClient.service.authenticate()
@@ -46,20 +61,25 @@ def search_author(query):
 	authClient.set_options(soapheaders=headers)
 	searchClient=Client(SEARCH_URL,headers=headers)
 	
-	setquery=SetQueryToSoap(query)#setquery=SetQueryToSoap('AU = Fabila-Monroy* Ruy*')
-	#setQuery('AU = Fabila Ruy')
-	
+	setquery=SetQueryToSoap(query)#setquery=SetQueryToSoap()	
 	setretrieve=retrieveParamToSoap()
+
 	resp=searchClient.factory.create('searchResponse')
 	resp=searchClient.service.search(setquery,setretrieve)
+
 	records = re.sub(' xmlns="http://scientific.thomsonreuters.com/schema/wok5.4/public/FullRecord"', '', resp.records, count=1)
 	recordsTree=ET.fromstring(records)
-	for rec in recordsTree.iter('REC'):for author in rec.findall('static_data/summary/names/name'):
+	minimo=len(query)
+	for rec in recordsTree.iter('REC'):
+		for author in rec.findall('static_data/summary/names/name'):
 			if author.attrib['role']=='author':
-				if 'dais_id' in author.attrib :
-					auth={str(author.attrib['dais_id']):dict()}
-					key_temp=str(author.attrib['dais_id'])
-	
+				if author.find('full_name') is not None:
+					#print author.find('wos_standard').text
+					if distance(author.find('full_name').text,query)<minimo:
+						print distance(author.find('full_name').text,query)
+						print author.find('full_name').text
+						minimo=distance(author.find('full_name').text,query)
+
 
 
 def parseresponse(resp):
@@ -132,6 +152,8 @@ def format_xml_from_raw(resp):
 
 
 def main():
+	search_author('AU = Fabila-Monroy* Ruy*')
+	"""
 	authClient=Client(AUTH_URL)
 	SID=authClient.service.authenticate()
 	headers = { 'Cookie': 'SID='+SID}
@@ -142,6 +164,7 @@ def main():
 	setretrieve=retrieveParamToSoap()
 	resp=searchClient.factory.create('searchResponse')
 	resp=searchClient.service.search(setquery,setretrieve)
-	print parseresponse(resp)
+	print parseresponse(resp)"""
+
 main()
  
